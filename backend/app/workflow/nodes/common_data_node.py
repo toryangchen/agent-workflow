@@ -1,4 +1,8 @@
 from app.repositories.task_repository import TaskRepository
+from app.collectors.feisha_log_collector import collect_feisha_logs
+from app.collectors.lld_collector import collect_lld_topology
+from app.collectors.monitor_collector import collect_monitor_metrics
+from app.collectors.release_collector import collect_release_info
 from app.runbook_engine.context_injector import required_context_keys
 from app.schemas.event_schema import EventType
 from app.schemas.node_schema import NodeStatus
@@ -26,7 +30,37 @@ class CommonDataNode:
             task_id, EventType.NODE_STARTED, "通用数据获取开始", node_id="common_data"
         )
         keys = required_context_keys(context.runbooks)
-        context = await self.context_manager.collect(context, keys)
+        project_id = context.project_id or ""
+        collectors = [
+            ("lld_topology", "LLD 信息获取", collect_lld_topology),
+            ("feisha_logs", "飞盟日志获取", collect_feisha_logs),
+            ("monitor_metrics", "监控指标获取", collect_monitor_metrics),
+            ("release_info", "发布记录获取", collect_release_info),
+        ]
+        for key, name, collector in collectors:
+            if key not in keys:
+                continue
+            await self.sse_manager.publish(
+                task_id,
+                EventType.SUB_NODE_STARTED,
+                f"{name}开始",
+                node_id="common_data",
+                payload={"step_id": key, "name": name},
+            )
+            value = await collector(project_id)
+            setattr(context, key, value)
+            await self.sse_manager.publish(
+                task_id,
+                EventType.SUB_NODE_FINISHED,
+                f"{name}完成",
+                node_id="common_data",
+                payload={"step_id": key, "name": name, "status": "success"},
+            )
+        context.project_info = {
+            "project_id": project_id,
+            "environment": "prod" if project_id.endswith("-prod") else "unknown",
+            "owner": "payment-platform",
+        }
         self.task_repository.set_context(task_id, context.model_dump(mode="json"))
         self.task_repository.set_node_status(task_id, "common_data", NodeStatus.SUCCESS)
         await self.sse_manager.publish(
@@ -37,12 +71,6 @@ class CommonDataNode:
             payload={
                 "keys": sorted(keys),
                 "context": context.runtime_view(),
-                "sub_steps": [
-                    {"name": "LLD 信息获取", "status": "success", "duration": "00:00:05"},
-                    {"name": "飞盟日志获取", "status": "success", "duration": "00:00:12"},
-                    {"name": "监控指标获取", "status": "success", "duration": "00:00:08"},
-                    {"name": "发布记录获取", "status": "success", "duration": "00:00:04"},
-                ],
             },
         )
         return {**state, "context": context}

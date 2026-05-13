@@ -11,6 +11,10 @@ const projectId = ref('payment-service-prod')
 const errorCode = ref('JAVA_HEAP_OOM')
 const description = ref('最近 Redis timeout 很严重，伴随请求变慢和 JVM 内存上涨')
 const userInput = computed(() => `${projectId.value} ${description.value}，错误码 ${errorCode.value}`)
+const headerTime = computed(() => {
+  const timestamp = store.events.find((event) => event.type === 'task_started')?.timestamp
+  return timestamp ? new Date(timestamp).toLocaleString('zh-CN', { hour12: false }) : '--'
+})
 
 async function submitTask() {
   if (!projectId.value.trim() || !errorCode.value.trim()) {
@@ -34,7 +38,7 @@ async function submitTask() {
           <span class="pulse" />
           {{ store.snapshot.status === 'running' ? '执行中' : store.snapshot.status }}
         </el-tag>
-        <span>2024-05-13 15:21:10</span>
+        <span>{{ headerTime }}</span>
         <el-button text circle>⟳</el-button>
       </div>
     </section>
@@ -48,7 +52,7 @@ async function submitTask() {
       </el-button>
     </section>
 
-    <TaskHeader v-if="store.snapshot" :task="store.snapshot" />
+    <TaskHeader v-if="store.snapshot" :task="store.snapshot" :events="store.events" />
 
     <WorkflowTimeline
       :nodes="store.snapshot?.nodes ?? []"

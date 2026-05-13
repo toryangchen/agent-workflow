@@ -15,23 +15,80 @@ const descriptions: Record<string, string> = {
   root_cause: '汇总分析结果，生成根因与建议',
 }
 
+const commonStepNames = [
+  ['lld_topology', 'LLD 信息获取'],
+  ['feisha_logs', '飞盟日志获取'],
+  ['monitor_metrics', '监控指标获取'],
+  ['release_info', '发布记录获取'],
+]
+
 const commonSubSteps = computed(() => {
-  const event = [...props.events].reverse().find((item) => item.node_id === 'common_data' && item.type === 'node_finished')
-  return (event?.payload.sub_steps as Array<{ name: string; status: string; duration: string }> | undefined) ?? [
-    { name: 'LLD 信息获取', status: 'pending', duration: '--' },
-    { name: '飞盟日志获取', status: 'pending', duration: '--' },
-    { name: '监控指标获取', status: 'pending', duration: '--' },
-    { name: '发布记录获取', status: 'pending', duration: '--' },
-  ]
+  return commonStepNames.map(([stepId, name]) => subStepFromEvents('common_data', stepId, name))
 })
+
+const runbookSubSteps = computed(() =>
+  props.runbookResults.map((result) => ({
+    id: result.runbook_id,
+    name: result.name,
+    summary: result.summary,
+    status: result.status === 'failed' ? 'failed' : 'success',
+    duration: formatMilliseconds(result.elapsed_ms),
+  })),
+)
 
 function statusText(status: string) {
   return status === 'success' ? '成功' : status === 'running' ? '执行中' : status === 'failed' ? '失败' : '等待中'
 }
 
-function durationFor(node: WorkflowNode, index: number) {
-  if (node.status === 'pending') return '--:--:--'
-  return ['00:00:02', '00:00:32', '00:00:41', '00:00:17'][index] ?? '00:00:00'
+function subStepFromEvents(nodeId: string, stepId: string, fallbackName: string) {
+  const started = props.events.find(
+    (event) =>
+      event.node_id === nodeId &&
+      event.type === 'sub_node_started' &&
+      event.payload.step_id === stepId,
+  )
+  const finished = props.events.find(
+    (event) =>
+      event.node_id === nodeId &&
+      event.type === 'sub_node_finished' &&
+      event.payload.step_id === stepId,
+  )
+  return {
+    id: stepId,
+    name: (finished?.payload.name as string) || (started?.payload.name as string) || fallbackName,
+    status: finished ? 'success' : started ? 'running' : 'pending',
+    duration: started && finished ? durationBetween(started.timestamp, finished.timestamp) : '--',
+    summary: '',
+  }
+}
+
+function eventFor(nodeId: string, type: string) {
+  return props.events.find((event) => event.node_id === nodeId && event.type === type)
+}
+
+function durationFor(node: WorkflowNode) {
+  const started = eventFor(node.node_id, 'node_started')
+  const finished = eventFor(node.node_id, 'node_finished')
+  if (!started) return '--'
+  return durationBetween(started.timestamp, finished?.timestamp ?? new Date().toISOString())
+}
+
+function finishedAt(node: WorkflowNode) {
+  const event = eventFor(node.node_id, 'node_finished') ?? eventFor(node.node_id, 'node_started')
+  if (!event) return '--:--:--'
+  return new Date(event.timestamp).toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function durationBetween(start: string, end: string) {
+  return formatMilliseconds(Math.max(0, new Date(end).getTime() - new Date(start).getTime()))
+}
+
+function formatMilliseconds(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return [hours, minutes, seconds].map((item) => String(item).padStart(2, '0')).join(':')
 }
 </script>
 
@@ -60,14 +117,14 @@ function durationFor(node: WorkflowNode, index: number) {
               <p>{{ descriptions[node.node_id] }}</p>
             </div>
             <div class="node-meta">
-              <span>{{ durationFor(node, index) }}</span>
-              <span>{{ node.status === 'pending' ? '--:--:--' : '15:21:12' }}</span>
+              <span>{{ durationFor(node) }}</span>
+              <span>{{ finishedAt(node) }}</span>
               <span class="chevron">⌄</span>
             </div>
           </div>
 
           <div v-if="node.node_id === 'common_data' && node.status !== 'pending'" class="sub-panel">
-            <div v-for="item in commonSubSteps" :key="item.name" class="sub-row">
+            <div v-for="item in commonSubSteps" :key="item.id" class="sub-row">
               <span class="sub-dot" :class="item.status" />
               <span>{{ item.name }}</span>
               <span class="sub-status">{{ statusText(item.status) }}</span>
@@ -75,15 +132,15 @@ function durationFor(node: WorkflowNode, index: number) {
             </div>
           </div>
 
-          <div v-if="node.node_id === 'runbook_execute' && runbookResults.length" class="sub-panel">
-            <div v-for="result in runbookResults" :key="result.runbook_id" class="sub-row runbook-row">
-              <span class="sub-dot" :class="result.status === 'failed' ? 'failed' : 'success'" />
+          <div v-if="node.node_id === 'runbook_execute' && runbookSubSteps.length" class="sub-panel">
+            <div v-for="result in runbookSubSteps" :key="result.id" class="sub-row runbook-row">
+              <span class="sub-dot" :class="result.status" />
               <span>
                 <strong>{{ result.name }}</strong>
                 <small>{{ result.summary }}</small>
               </span>
-              <span class="sub-status">{{ result.status }}</span>
-              <span>{{ Math.max(1, Math.round(result.elapsed_ms / 1000)) }}s</span>
+              <span class="sub-status">{{ statusText(result.status) }}</span>
+              <span>{{ result.duration }}</span>
             </div>
           </div>
         </div>

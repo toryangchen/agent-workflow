@@ -1,7 +1,34 @@
 <script setup lang="ts">
-import type { TaskSnapshot } from '../../types/agent'
+import { computed } from 'vue'
+import type { AgentEvent, TaskSnapshot } from '../../types/agent'
 
-defineProps<{ task: TaskSnapshot }>()
+const props = defineProps<{ task: TaskSnapshot; events: AgentEvent[] }>()
+
+const startedAt = computed(() => props.events.find((event) => event.type === 'task_started')?.timestamp)
+const endedAt = computed(
+  () =>
+    [...props.events]
+      .reverse()
+      .find((event) => event.type === 'task_completed' || event.type === 'task_failed')?.timestamp,
+)
+
+const startedAtText = computed(() =>
+  startedAt.value ? new Date(startedAt.value).toLocaleString('zh-CN', { hour12: false }) : '--',
+)
+
+const totalDuration = computed(() => {
+  if (!startedAt.value) return '--'
+  const end = endedAt.value ?? new Date().toISOString()
+  return formatDuration(new Date(end).getTime() - new Date(startedAt.value).getTime())
+})
+
+function formatDuration(ms: number) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes === 0) return `${seconds}秒`
+  return `${minutes}分 ${seconds}秒`
+}
 </script>
 
 <template>
@@ -20,11 +47,11 @@ defineProps<{ task: TaskSnapshot }>()
     </div>
     <div>
       <span class="label">开始时间</span>
-      <strong>2024-05-13 15:21:10</strong>
+      <strong>{{ startedAtText }}</strong>
     </div>
     <div>
       <span class="label">总耗时</span>
-      <strong>{{ task.status === 'success' ? '1分 32秒' : '--' }}</strong>
+      <strong>{{ totalDuration }}</strong>
     </div>
   </section>
 </template>
