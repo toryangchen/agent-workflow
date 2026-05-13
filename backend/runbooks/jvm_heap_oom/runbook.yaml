@@ -1,0 +1,11 @@
+id: jvm_heap_oom
+name: JVM Heap OOM 检查
+description: 检查 JVM 堆内存和线程指标是否异常
+requires:
+  - monitor_metrics
+  - release_info
+timeout: 30
+tags:
+  - jvm
+  - oom
+

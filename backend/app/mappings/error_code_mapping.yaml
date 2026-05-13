@@ -1,0 +1,11 @@
+JAVA_HEAP_OOM:
+  - redis_timeout_check
+  - jvm_heap_oom
+  - log_error_check
+
+REDIS_TIMEOUT:
+  - redis_timeout_check
+
+MQ_BACKLOG:
+  - mq_backlog_check
+

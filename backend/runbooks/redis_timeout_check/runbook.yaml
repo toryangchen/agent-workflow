@@ -1,0 +1,11 @@
+id: redis_timeout_check
+name: Redis Timeout 检查
+description: 检查 Redis timeout 是否异常
+requires:
+  - feisha_logs
+  - monitor_metrics
+timeout: 30
+tags:
+  - redis
+  - middleware
+

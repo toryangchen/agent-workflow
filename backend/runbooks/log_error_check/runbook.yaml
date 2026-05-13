@@ -1,0 +1,11 @@
+id: log_error_check
+name: 日志错误检查
+description: 检查错误日志中的关键异常
+requires:
+  - feisha_logs
+  - lld_topology
+timeout: 30
+tags:
+  - log
+  - error
+
