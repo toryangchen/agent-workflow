@@ -11,8 +11,9 @@ export async function createAgentTask(userInput: string): Promise<{ task_id: str
 }
 
 export async function fetchTaskSnapshot(taskId: string): Promise<TaskSnapshot> {
-  const response = await fetch(`/api/agent/tasks/${taskId}`)
+  const response = await fetch(`/api/agent/tasks/${taskId}`, {
+    method: 'POST',
+  })
   if (!response.ok) throw new Error(await response.text())
   return response.json()
 }
-

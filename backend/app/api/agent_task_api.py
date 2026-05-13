@@ -27,7 +27,7 @@ async def create_task(payload: TaskCreateRequest, request: Request):
     return TaskCreateResponse(task_id=task_id, status="running")
 
 
-@router.get("/{task_id}", response_model=TaskSnapshot)
+@router.post("/{task_id}", response_model=TaskSnapshot)
 async def get_task(task_id: str, request: Request):
     task = get_task_repository(request).get(task_id)
     if task is None:
@@ -35,7 +35,7 @@ async def get_task(task_id: str, request: Request):
     return task
 
 
-@router.get("/{task_id}/events")
+@router.post("/{task_id}/events")
 async def stream_events(task_id: str, request: Request):
     task = get_task_repository(request).get(task_id)
     if task is None:

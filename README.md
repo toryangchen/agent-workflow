@@ -93,13 +93,13 @@ curl -X POST http://localhost:8000/api/agent/tasks \
 查询任务：
 
 ```bash
-curl http://localhost:8000/api/agent/tasks/{task_id}
+curl -X POST http://localhost:8000/api/agent/tasks/{task_id}
 ```
 
 监听事件：
 
 ```bash
-curl -N http://localhost:8000/api/agent/tasks/{task_id}/events
+curl -N -X POST http://localhost:8000/api/agent/tasks/{task_id}/events
 ```
 
 ## Runbook 编写
@@ -130,6 +130,7 @@ tags:
 
 - `context`：通用上下文数据
 - `result`：脚本写入的结构化结果
+- `http`：平台注入的受控 HTTP Client，支持 `get/post`，自动应用 host 白名单和 timeout
 
 示例：
 
@@ -146,6 +147,25 @@ result["summary"] = f"发现 Redis timeout {timeout_count} 次"
 result["evidence"] = [f"Redis timeout 次数：{timeout_count}"]
 result["suggestion"] = "建议检查 Redis 连接池"
 ```
+
+脚本内网络请求示例：
+
+```python
+response = http.get("https://monitor-api.internal/api/status", timeout=2)
+payload = response.json()
+
+result["summary"] = f"监控接口状态：{payload.get('status')}"
+result["evidence"] = [f"HTTP status：{response.status_code}"]
+```
+
+HTTP 访问控制配置：
+
+```env
+RUNBOOK_HTTP_ALLOWED_HOSTS=monitor-api.internal,cmdb.internal,log-api.internal
+RUNBOOK_HTTP_TIMEOUT_SECONDS=3
+```
+
+如果目标 host 不在白名单中，Runbook 会执行失败并把错误写入 `RunbookResult.error`。生产环境不建议配置 `*`，除非是在完全隔离的测试环境。
 
 错误码映射在 `backend/app/mappings/error_code_mapping.yaml`。
 

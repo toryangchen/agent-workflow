@@ -7,7 +7,7 @@ export const useAgentStore = defineStore('agent', () => {
   const snapshot = ref<TaskSnapshot | null>(null)
   const events = ref<AgentEvent[]>([])
   const submitting = ref(false)
-  const eventSource = ref<EventSource | null>(null)
+  const eventAbortController = ref<AbortController | null>(null)
 
   const runbookResults = computed(() => snapshot.value?.runbook_results ?? [])
   const rootCause = computed(() => snapshot.value?.root_cause ?? null)
@@ -28,29 +28,44 @@ export const useAgentStore = defineStore('agent', () => {
     snapshot.value = await fetchTaskSnapshot(taskId)
   }
 
-  function connectEvents(taskId: string) {
-    eventSource.value = new EventSource(`/api/agent/tasks/${taskId}/events`)
-    const names = [
-      'task_started',
-      'node_started',
-      'node_finished',
-      'sub_node_started',
-      'sub_node_finished',
-      'log',
-      'task_completed',
-      'task_failed',
-    ]
-    names.forEach((name) => {
-      eventSource.value?.addEventListener(name, (message) => {
-        const event = JSON.parse((message as MessageEvent).data) as AgentEvent
-        applyEvent(event)
-      })
+  async function connectEvents(taskId: string) {
+    const controller = new AbortController()
+    eventAbortController.value = controller
+    const response = await fetch(`/api/agent/tasks/${taskId}/events`, {
+      method: 'POST',
+      headers: { Accept: 'text/event-stream' },
+      signal: controller.signal,
     })
+    if (!response.ok) throw new Error(await response.text())
+    if (!response.body) throw new Error('浏览器不支持 SSE 流式响应')
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const chunks = buffer.split('\n\n')
+        buffer = chunks.pop() ?? ''
+        for (const chunk of chunks) {
+          const dataLine = chunk
+            .split('\n')
+            .find((line) => line.startsWith('data: '))
+          if (!dataLine) continue
+          applyEvent(JSON.parse(dataLine.slice(6)) as AgentEvent)
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) throw error
+    }
   }
 
   function closeEvents() {
-    eventSource.value?.close()
-    eventSource.value = null
+    eventAbortController.value?.abort()
+    eventAbortController.value = null
     events.value = []
   }
 
