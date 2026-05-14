@@ -9,7 +9,7 @@ from app.schemas.context_schema import AgentContext
 def test_registry_loads_mapping_and_runbooks():
     registry = RunbookRegistry(
         runbooks_dir=Path("runbooks"),
-        mapping_file=Path("app/mappings/error_code_mapping.yaml"),
+        mapping_file=Path("runbooks/error_code_mapping.yaml"),
     )
 
     runbooks = registry.get_by_error_code("JAVA_HEAP_OOM")
@@ -26,7 +26,7 @@ def test_executor_injects_context_and_collects_result():
     async def run():
         registry = RunbookRegistry(
             runbooks_dir=Path("runbooks"),
-            mapping_file=Path("app/mappings/error_code_mapping.yaml"),
+            mapping_file=Path("runbooks/error_code_mapping.yaml"),
         )
         runbook = registry.get_by_error_code("REDIS_TIMEOUT")[0]
         executor = RunbookExecutor()
@@ -59,7 +59,7 @@ def test_agent_context_is_exposed_to_runtime_scripts():
     async def run():
         registry = RunbookRegistry(
             runbooks_dir=Path("runbooks"),
-            mapping_file=Path("app/mappings/error_code_mapping.yaml"),
+            mapping_file=Path("runbooks/error_code_mapping.yaml"),
         )
         runbook = registry.get_by_error_code("JAVA_HEAP_OOM")[2]
         executor = RunbookExecutor()

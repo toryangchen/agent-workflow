@@ -17,7 +17,7 @@ class Settings:
     llm_model: str = os.getenv("LLM_MODEL", "")
     runbook_http_allowed_hosts: tuple[str, ...] = tuple(
         host.strip()
-        for host in os.getenv("RUNBOOK_HTTP_ALLOWED_HOSTS", "").split(",")
+        for host in os.getenv("RUNBOOK_HTTP_ALLOWED_HOSTS", "httpbin.org").split(",")
         if host.strip()
     )
     runbook_http_timeout_seconds: float = float(

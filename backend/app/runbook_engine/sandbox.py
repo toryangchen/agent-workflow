@@ -35,6 +35,7 @@ def execute_script(
             "set": set,
             "any": any,
             "all": all,
+            "Exception": Exception,
         },
         "context": context,
         "result": result,

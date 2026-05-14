@@ -161,13 +161,13 @@ result["evidence"] = [f"HTTP status：{response.status_code}"]
 HTTP 访问控制配置：
 
 ```env
-RUNBOOK_HTTP_ALLOWED_HOSTS=monitor-api.internal,cmdb.internal,log-api.internal
+RUNBOOK_HTTP_ALLOWED_HOSTS=httpbin.org,monitor-api.internal,cmdb.internal,log-api.internal
 RUNBOOK_HTTP_TIMEOUT_SECONDS=3
 ```
 
 如果目标 host 不在白名单中，Runbook 会执行失败并把错误写入 `RunbookResult.error`。生产环境不建议配置 `*`，除非是在完全隔离的测试环境。
 
-错误码映射在 `backend/app/mappings/error_code_mapping.yaml`。
+错误码映射在 `backend/runbooks/error_code_mapping.yaml`。
 
 ## AgentContext
 

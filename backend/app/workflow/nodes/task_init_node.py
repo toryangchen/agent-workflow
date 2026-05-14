@@ -21,7 +21,7 @@ class TaskInitNode:
         self.llm_service = llm_service
         self.registry = RunbookRegistry(
             runbooks_dir=Path("runbooks"),
-            mapping_file=Path("app/mappings/error_code_mapping.yaml"),
+            mapping_file=Path("runbooks/error_code_mapping.yaml"),
         )
 
     async def __call__(self, state: AgentState) -> AgentState:
